@@ -1,0 +1,12 @@
+# Normaliza fines de línea: en el repo siempre LF, en el working copy lo que use el OS.
+* text=auto eol=lf
+
+# Binarios (no tocar EOL)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.db binary
+*.pem binary

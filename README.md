@@ -1,8 +1,40 @@
 # MTG Gallery — Galería Virtual de Cartas de Magic: The Gathering
 
-Aplicación full-stack para explorar el catálogo completo de cartas de **Magic: The Gathering** usando la API pública de [Scryfall](https://scryfall.com/docs/api). Incluye registro/login propio (JWT + SQLite), tracking de colección personal por usuario (sets por año, cartas no poseídas en grayscale), **estadísticas de colección**, **wishlist**, **constructor de mazos** (con validación de legalidad e importar/exportar decklists) y un buscador global de tiendas físicas combinando datos curados con [OpenStreetMap](https://www.openstreetmap.org).
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)
+
+Aplicación full-stack para explorar el catálogo completo de cartas de **Magic: The Gathering** usando la API pública de [Scryfall](https://scryfall.com/docs/api). Incluye registro/login propio (JWT + SQLite), tracking de colección personal por usuario (sets por año, cartas no poseídas en grayscale), **estadísticas de colección**, **wishlist**, **constructor de mazos** (con validación de legalidad e importar/exportar decklists), **exportar la colección a CSV/JSON** y un buscador global de tiendas físicas combinando datos curados con [OpenStreetMap](https://www.openstreetmap.org).
 
 Frontend en **React 18 + Vite + Tailwind** con sidebar global colapsable, backend **Node.js + Express** que combina varios proxies con caché en memoria + auth + persistencia de colección, wishlist y mazos.
+
+> Proyecto personal de aprendizaje. No está afiliado a Wizards of the Coast ni a Scryfall.
+
+---
+
+## Inicio rápido
+
+Requiere **Node.js 18+** y **npm 9+**.
+
+```bash
+# 1. Clonar
+git clone https://github.com/GabrielDelvalle70/mtg-gallery.git
+cd mtg-gallery
+
+# 2. Instalar dependencias (root + client + server)
+npm run install:all
+
+# 3. Configurar el server (ver "Variables de entorno" más abajo)
+#    Crear server/.env con al menos un JWT_SECRET.
+
+# 4. Levantar en modo desarrollo (Vite :5173 + Express :3001)
+npm run dev
+```
+
+Luego abrí <http://localhost:5173>. El backend no requiere API key de Scryfall.
 
 ---
 
@@ -25,13 +57,13 @@ Frontend en **React 18 + Vite + Tailwind** con sidebar global colapsable, backen
 mtg-gallery/
 ├── client/                 # React + Vite + Tailwind
 │   ├── src/
-│   │   ├── components/     # CardGrid, CardItem, CollectionCardItem, WishlistCardItem, CardModal, SearchBar, Filters, Sidebar, LoginTransition...
+│   │   ├── components/     # CardGrid, CardItem, CollectionCardItem, WishlistCardItem, CollectionExportModal, CardModal, SearchBar, Filters, Sidebar, LoginTransition...
 │   │   ├── pages/          # HomePage, CardDetailPage, LandingPage, LoginPage, RegisterPage, CollectionPage, CollectionSetPage, CollectionStatsPage, WishlistPage, DecksPage, ReferenceDecksPage, DeckEditorPage, StoresPage
 │   │   ├── context/        # ThemeContext, AuthContext, WishlistContext, CollectionContext, FiltersContext, CacheContext
 │   │   ├── hooks/          # useDebounce, useFetch, usePagination, useIntersectionObserver, useGeolocation, useLocalStorage
 │   │   ├── services/       # scryfall.js, auth.js, collection.js, wishlist.js, decks.js, geocode.js, overpass.js
 │   │   ├── data/           # stores.js (listas curadas + países con mainCity + Haversine), referenceDecks.js (arquetipos competitivos)
-│   │   └── utils/          # format, colors, rarity, mana, deckExport, deckImport
+│   │   └── utils/          # format, colors, rarity, mana, deckExport, deckImport, collectionExport, ownership
 │   ├── index.html
 │   ├── vite.config.js
 │   ├── tailwind.config.js
@@ -233,6 +265,7 @@ Ambos cachean 24h. `/geocode/reverse` proxea a [Nominatim](https://nominatim.ope
 12. **Vista detalle por set** (`/collection/:code`) — carga incremental de **todas** las cartas del set (sigue `has_more` de Scryfall), filtros *Todas / En mi colección / Faltantes*, hero con progreso global.
 13. **Toggle por carta** — cartas no poseídas aparecen en `grayscale` + opacidad reducida; al marcar vuelven a color con chip "En tu colección". Update optimista con rollback en caso de error del server.
 13b. **Detalle de carta desde la colección** — click en cualquier carta (poseída o no) abre la misma vista de detalle que la galería (`/card/:id`, reutilizando la data ya cargada). El botón Agregar/Quitar sigue funcionando sin abrir el detalle (stretched link + z-index).
+13c. **Exportar colección** — botón en `/collection` que abre un modal para descargar la colección como **CSV** (planilla) o **JSON** autocontenido. Cada fila resuelve la metadata completa de la carta on-demand contra Scryfall (nombre, set, rareza, coste, color, tipo, precio USD, `scryfall_uri`).
 
 ### Estadísticas de colección (`/stats`, requiere sesión)
 
@@ -349,6 +382,7 @@ Extensiones recomendadas: **Tailwind CSS IntelliSense**, **Prettier**, **ESLint*
 - **Estadísticas de colección** (`/stats`) — dashboard con resumen + charts de curva/rareza/color/tipo/top sets.
 - **Wishlist** (`/wishlist`) — lista de deseados con vista grilla/lista y auto-quitar al adquirir.
 - **Construcción de mazos** (`/decks`) — editor con buscador, stats, validación de legalidad (constructed), **importar/exportar decklist** (MTGO/Moxfield/Arena) y **mazos competitivos de referencia** (arquetipos curados con cartas clave + "crear mazo base").
+- **Exportar colección** (`/collection`) — descarga a CSV o JSON autocontenido, resolviendo la metadata de cada carta on-demand contra Scryfall.
 
 ### Candidatos pendientes
 
@@ -356,7 +390,6 @@ Respetan el stack actual — sin deps nuevas innecesarias, cliente siempre vía 
 
 **Rápidas, alto valor:**
 - **Cartas vistas recientemente**: historial de las últimas N cartas abiertas en detalle (`localStorage`).
-- **Exportar colección** a CSV/JSON (decklist estilo Scryfall/Moxfield), reutilizando el patrón de export de mazos.
 - **Buscador dentro de un set** en `CollectionSetPage` (filtrar por nombre/número sobre las cartas ya cargadas).
 
 **Medianas:**

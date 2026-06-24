@@ -54,9 +54,9 @@ npm start               # producción: Express sirve dist + endpoints /api
 
 ---
 
-## Red corporativa (Grupo Vierci) — TLS MITM
+## Red corporativa — TLS MITM
 
-**Crítico para entornos corporativos**: la red de Grupo Vierci intercepta HTTPS con un cert raíz propio. Node nativo **no consulta el cert store de Windows**, así que `fetch('https://api.scryfall.com')` falla con:
+**Crítico para entornos corporativos**: algunas redes corporativas interceptan HTTPS con un cert raíz propio (Zscaler, Fortinet, etc.). Node nativo **no consulta el cert store de Windows**, así que `fetch('https://api.scryfall.com')` falla con:
 
 ```
 fetch failed → self-signed certificate in certificate chain
