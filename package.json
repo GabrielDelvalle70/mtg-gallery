@@ -1,0 +1,21 @@
+{
+  "name": "mtg-gallery",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Galería virtual de cartas de Magic: The Gathering (Scryfall API)",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n client,server -c green,cyan \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "install:all": "npm install && npm --prefix client install && npm --prefix server install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

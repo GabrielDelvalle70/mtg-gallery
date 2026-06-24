@@ -1,0 +1,22 @@
+{
+  "name": "mtg-gallery-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "cross-env NODE_EXTRA_CA_CERTS=./certs/windows-ca-bundle.pem node --env-file=./.env server.js",
+    "dev": "cross-env NODE_EXTRA_CA_CERTS=./certs/windows-ca-bundle.pem node --env-file=./.env --watch server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.10.0",
+    "cors": "^2.8.5",
+    "cross-env": "^7.0.3",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
