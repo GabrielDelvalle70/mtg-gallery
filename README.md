@@ -34,7 +34,7 @@ npm run install:all
 npm run dev
 ```
 
-Luego abrí <http://localhost:5173>. El backend no requiere API key de Scryfall.
+Luego abrír <http://localhost:puertoasignado>. El backend no requiere API key de Scryfall.
 
 ---
 
@@ -48,48 +48,6 @@ Luego abrí <http://localhost:5173>. El backend no requiere API key de Scryfall.
 | Auth     | JWT (`jsonwebtoken`) en localStorage + `bcryptjs` (cost 12)    |
 | DB       | SQLite vía `better-sqlite3` (file en `data/app.db`)            |
 | API      | Scryfall (gratuita, sin API key, ~150 req/s por IP)            |
-
----
-
-## Estructura
-
-```
-mtg-gallery/
-├── client/                 # React + Vite + Tailwind
-│   ├── src/
-│   │   ├── components/     # CardGrid, CardItem, CollectionCardItem, WishlistCardItem, CollectionExportModal, CardModal, SearchBar, Filters, Sidebar, LoginTransition...
-│   │   ├── pages/          # HomePage, CardDetailPage, LandingPage, LoginPage, RegisterPage, CollectionPage, CollectionSetPage, CollectionStatsPage, WishlistPage, DecksPage, ReferenceDecksPage, DeckEditorPage, StoresPage
-│   │   ├── context/        # ThemeContext, AuthContext, WishlistContext, CollectionContext, FiltersContext, CacheContext
-│   │   ├── hooks/          # useDebounce, useFetch, usePagination, useIntersectionObserver, useGeolocation, useLocalStorage
-│   │   ├── services/       # scryfall.js, auth.js, collection.js, wishlist.js, decks.js, geocode.js, overpass.js
-│   │   ├── data/           # stores.js (listas curadas + países con mainCity + Haversine), referenceDecks.js (arquetipos competitivos)
-│   │   └── utils/          # format, colors, rarity, mana, deckExport, deckImport, collectionExport, ownership
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── package.json
-├── server/                 # Express
-│   ├── src/
-│   │   ├── routes/scryfall.js     # /api/scryfall/* — proxy a Scryfall (incluye POST /collection bulk)
-│   │   ├── routes/auth.js         # /api/auth/* — register, login, me
-│   │   ├── routes/collection.js   # /api/collection/* — cards CRUD + stats
-│   │   ├── routes/wishlist.js     # /api/wishlist/* — cards CRUD
-│   │   ├── routes/decks.js        # /api/decks/* — CRUD de mazos + cards + import bulk
-│   │   ├── routes/geocode.js      # /api/geocode/* — reverse geocoding (Nominatim)
-│   │   ├── routes/overpass.js     # /api/overpass/* — tiendas OSM (Overpass)
-│   │   ├── middleware/auth.js     # requireAuth (verifica Bearer JWT)
-│   │   ├── middleware/cache.js    # Cache-Control + in-memory
-│   │   ├── middleware/rateLimit.js
-│   │   ├── cache/memoryCache.js   # Map + TTL + GC periódico
-│   │   └── db/database.js         # SQLite init + queries (users, user_cards, user_wishlist, decks, deck_cards) + transacciones
-│   ├── certs/                     # bundle PEM (gitignored)
-│   ├── .env                       # NODE_EXTRA_CA_CERTS + JWT_SECRET (gitignored)
-│   └── server.js
-├── data/                          # SQLite database (gitignored — fuera de server/ para evitar restarts de --watch)
-│   └── app.db
-├── package.json            # Scripts root (concurrently)
-└── .vscode/settings.json
-```
 
 ---
 
@@ -159,86 +117,6 @@ npm run build
 # Producción: Express sirve client/dist + endpoints /api
 npm start
 ```
-
-Modo desarrollo:
-- Vite escucha en `http://localhost:5173` y enruta `/api/*` al server Express.
-- Express escucha en `http://localhost:3001` y reenvía a `https://api.scryfall.com`.
-
-Modo producción:
-- `NODE_ENV=production npm start` sirve los assets estáticos compilados.
-
----
-
-## Endpoints del Backend
-
-### Scryfall proxy (`/api/scryfall/*`)
-
-Todos GET, con caché de 5 min + headers `Cache-Control: public, max-age=300`.
-
-| Ruta                          | Scryfall equivalente                  | Descripción                          |
-|-------------------------------|---------------------------------------|--------------------------------------|
-| `GET /search?q=&order=&dir=&page=` | `/cards/search`                  | Búsqueda con sintaxis Scryfall       |
-| `GET /cards/:id`              | `/cards/:id`                          | Carta por ID                         |
-| `GET /cards/named?exact=&fuzzy=` | `/cards/named`                     | Búsqueda por nombre exacto / fuzzy   |
-| `GET /sets`                   | `/sets`                               | Listado completo de sets             |
-| `GET /sets/:code`             | `/sets/:code`                         | Set específico                       |
-| `GET /symbology`              | `/symbology`                          | Símbolos de maná                     |
-| `GET /catalog/:name`          | `/catalog/:name`                      | Catálogos (artist-names, etc.)       |
-| `POST /collection`            | `/cards/collection`                   | Bulk: identifiers por `{id}` o `{name}` (máx 75); no cacheado |
-| `GET /api/health`             | —                                     | Health check                         |
-
-### Auth (`/api/auth/*`)
-
-| Método | Ruta        | Body / Headers                                  | Respuesta                |
-|--------|-------------|-------------------------------------------------|--------------------------|
-| POST   | `/register` | `{ email, username, password }`                 | `{ token, user }` (201)  |
-| POST   | `/login`    | `{ identifier (email o username), password }`   | `{ token, user }` (200)  |
-| GET    | `/me`       | `Authorization: Bearer <token>`                 | `{ user }` (200)         |
-
-Validaciones: email regex básico, username `^[a-zA-Z0-9_]{3,24}$`, password ≥ 8 chars. Passwords hasheadas con `bcryptjs` (cost 12).
-
-### Colección (`/api/collection/*`) — requiere `Authorization: Bearer <token>`
-
-| Método | Ruta              | Body / Params           | Respuesta                              |
-|--------|-------------------|-------------------------|----------------------------------------|
-| GET    | `/cards`          | —                       | `{ cards: [{id, setCode}, ...] }`      |
-| POST   | `/cards`          | `{ cardId, setCode }`   | `{ ok: true }` (201, idempotente)      |
-| DELETE | `/cards/:cardId`  | —                       | 204                                    |
-| GET    | `/stats`          | —                       | `{ total, bySet: { lea: 5, ... } }`    |
-
-El `POST /cards` además quita la carta de la wishlist si estaba (transacción `acquireCard`).
-
-### Wishlist (`/api/wishlist/*`) — requiere `Authorization: Bearer <token>`
-
-| Método | Ruta              | Body / Params           | Respuesta                              |
-|--------|-------------------|-------------------------|----------------------------------------|
-| GET    | `/cards`          | —                       | `{ cards: [{id, setCode}, ...] }`      |
-| POST   | `/cards`          | `{ cardId, setCode }`   | `{ ok: true }` (201, idempotente)      |
-| DELETE | `/cards/:cardId`  | —                       | 204                                    |
-
-### Mazos (`/api/decks/*`) — requiere `Authorization: Bearer <token>` + ownership
-
-| Método | Ruta            | Body / Params                                  | Respuesta                                            |
-|--------|-----------------|------------------------------------------------|------------------------------------------------------|
-| GET    | `/`             | —                                              | `{ decks: [{id, name, format, cardCount, updatedAt}] }` |
-| POST   | `/`             | `{ name, format }`                             | `{ deck }` (201)                                     |
-| GET    | `/:id`          | —                                              | `{ deck: {..., cards:[{id, setCode, quantity}]} }`   |
-| PATCH  | `/:id`          | `{ name?, format? }`                           | `{ deck }`                                           |
-| DELETE | `/:id`          | —                                              | 204                                                  |
-| PUT    | `/:id/cards`    | `{ cardId, setCode, quantity }`                | `{ ok, quantity }` (quantity 0 = quitar)             |
-| POST   | `/:id/import`   | `{ cards:[{cardId,setCode,quantity}], mode }`  | `{ ok, imported, mode }` (mode `add`\|`replace`)     |
-
-Formatos válidos: `standard`, `pioneer`, `modern`, `legacy`, `vintage`, `pauper`. Todo `/:id` devuelve 404 si el mazo no es del usuario.
-
-### Geocoding y tiendas OSM (`/api/geocode/*`, `/api/overpass/*`) — público
-
-| Método | Ruta                          | Query                                  | Respuesta                                            |
-|--------|-------------------------------|----------------------------------------|------------------------------------------------------|
-| GET    | `/geocode/reverse`            | `lat`, `lon`                           | `{ countryCode, countryName }`                       |
-| GET    | `/overpass/shops`             | `lat`, `lon`, `radius` (m, max 200k)   | `{ shops: [{id, name, address, city, lat, lon, website, osmTag, source}] }` |
-
-Ambos cachean 24h. `/geocode/reverse` proxea a [Nominatim](https://nominatim.openstreetmap.org). `/overpass/shops` proxea a [Overpass API](https://overpass-api.de) buscando nodes/ways con tag `shop=collector` o `shop=games`.
-
 ---
 
 ## Funcionalidades implementadas
@@ -331,37 +209,6 @@ Ambos cachean 24h. `/geocode/reverse` proxea a [Nominatim](https://nominatim.ope
 
 ---
 
-## Decisiones arquitectónicas
-
-- **Proxy en lugar de fetch directo desde el cliente**: centraliza caché, esquiva CORS para futuros endpoints autenticados, permite agregar telemetría y rate limiting.
-- **Context + useReducer en lugar de Redux**: el estado global es acotado (6 contextos: Theme, Auth, Wishlist, Collection, Filters, Cache). Más liviano que el setup de Redux Toolkit para este tamaño de app. Los mazos **no** usan context global (se fetchean page-local) porque no se necesitan en toda la app.
-- **JWT en localStorage en lugar de cookies de sesión**: encaja con el patrón existente de fetch + headers, sin necesidad de `cookie-parser` ni configurar CORS con `credentials: true`. Trade-off conocido: vulnerable a XSS — para mitigarlo, evitamos `dangerouslySetInnerHTML` y todo input del usuario va por React (escapado por defecto).
-- **SQLite en lugar de Postgres/MySQL**: cero infra externa para correr el proyecto, file-based, suficiente para un proyecto de aprendizaje. `better-sqlite3` es síncrono — más simple que callbacks/promises de drivers async — y muy rápido para reads.
-- **`data/` en la raíz, no en `server/`**: SQLite escribe WAL files (`.db-shm`, `.db-wal`) en cada commit, lo que dispararía `node --watch` y reiniciaría el server mid-request. Manteniéndolo en la raíz, `--watch server/` ignora esos cambios.
-- **Update optimista en CollectionContext**: marcar una carta es una acción frecuente; esperar el round-trip del server hace que el toggle se sienta laggy. El cliente actualiza el `Set<id>` inmediatamente y revierte si el server rechaza.
-- **Caché en dos capas**: el server cachea respuestas crudas de Scryfall (5 min) y el cliente cachea respuestas ya parseadas + persiste en localStorage para arrancar offline-first en visitas repetidas.
-- **Paginación híbrida**: Scryfall devuelve páginas de 175 cartas; el grid muestra 36 por página y subdivide localmente para reducir requests.
-- **`buildScryfallQuery` como capa de traducción**: separa el modelo del UI de los filtros del DSL de Scryfall, fácil de extender.
-- **Sidebar como app shell vs links en Header**: la navegación principal vive en `Sidebar.jsx`. El Header queda limpio y reservado para identidad/auth/tema. En lg+ la sidebar es colapsable (estado persiste en localStorage); en mobile se vuelve barra horizontal con scroll para no robar pantalla.
-- **Tiendas: dos fuentes complementarias en vez de una sola "perfecta"**: la curada es chica pero confiable; OSM da cobertura global pero variable. Combinarlas vía un `queryPoint` único (GPS o ciudad principal del país) y sortear por distancia da algo útil para cualquier país. El locator oficial WPN siempre está disponible como fallback.
-- **Reverse geocoding via Nominatim**: para convertir lat/lon → país sin claves de API ni listas hardcodeadas de bounding boxes. Proxeado por el backend (cache 24h + cert TLS corporativo).
-- **Data de carta on-demand para stats/wishlist/mazos**: la DB sólo guarda `card_id + set_code` (no rareza/color/cmc/precio). Las vistas que necesitan esos campos los traen de Scryfall con `POST /cards/collection` batcheado de a 75, en vez de duplicar metadata en la DB (evita migraciones y backfill; la data viene siempre fresca). El costo es un fetch al abrir la vista.
-- **Commit de sesión diferido (animación de login)**: `authenticate`/`registerAccount` validan credenciales pero **no** setean `isAuthenticated`; el commit (`commitSession`) ocurre recién al terminar la animación. Si no, el wrapper `GuestOnly` redirigía al instante y desmontaba la animación antes de verse.
-- **Persistencia incremental + import bulk en mazos**: cada cambio de cantidad es un `PUT` optimista (sin botón "guardar"), pero importar una decklist usa **un solo** `POST /:id/import` transaccional en vez de N requests. La resolución de nombres reusa el endpoint `/collection` con identifiers `{name}` (Scryfall hace el match).
-
----
-
-## Performance — buenas prácticas aplicadas
-
-- `<link rel="preconnect">` a `api.scryfall.com` y `cards.scryfall.io` en `index.html`.
-- Imágenes con `loading="lazy" decoding="async" srcSet sizes` para descargas adaptativas.
-- `IntersectionObserver` para no instanciar `<img>` fuera de viewport.
-- `React.memo` en `CardItem`, `CardGrid`, `SearchBar`, `Filters`, `SortControls`, `Pagination`, `ManaCost`, `CardModal`.
-- `useFetch` con `AbortController` cancela requests obsoletos al cambiar filtros rápidamente.
-- Chunk splitting de `react`/`react-router` en `vite.config.js`.
-
----
-
 ## Configuración VS Code
 
 `.vscode/settings.json` ya incluye:
@@ -372,34 +219,6 @@ Ambos cachean 24h. `/geocode/reverse` proxea a [Nominatim](https://nominatim.ope
 - Exclusión de `node_modules` / `dist` del search
 
 Extensiones recomendadas: **Tailwind CSS IntelliSense**, **Prettier**, **ESLint**.
-
----
-
-## Roadmap
-
-### ✅ Implementado en iteraciones recientes
-
-- **Estadísticas de colección** (`/stats`) — dashboard con resumen + charts de curva/rareza/color/tipo/top sets.
-- **Wishlist** (`/wishlist`) — lista de deseados con vista grilla/lista y auto-quitar al adquirir.
-- **Construcción de mazos** (`/decks`) — editor con buscador, stats, validación de legalidad (constructed), **importar/exportar decklist** (MTGO/Moxfield/Arena) y **mazos competitivos de referencia** (arquetipos curados con cartas clave + "crear mazo base").
-- **Exportar colección** (`/collection`) — descarga a CSV o JSON autocontenido, resolviendo la metadata de cada carta on-demand contra Scryfall.
-
-### Candidatos pendientes
-
-Respetan el stack actual — sin deps nuevas innecesarias, cliente siempre vía proxy `/api/*`.
-
-**Rápidas, alto valor:**
-- **Cartas vistas recientemente**: historial de las últimas N cartas abiertas en detalle (`localStorage`).
-- **Buscador dentro de un set** en `CollectionSetPage` (filtrar por nombre/número sobre las cartas ya cargadas).
-
-**Medianas:**
-- **Extender mazos**: sideboard, formato Commander (singleton + 100 + comandante), "armar desde la colección".
-- **Otras impresiones** de una carta + precios comparados (`prints_search_uri` de Scryfall).
-
-**Pulido / UX:**
-- Command palette de búsqueda global (Ctrl/Cmd+K).
-- Skeletons/animaciones de entrada más consistentes entre páginas.
-- PWA instalable + offline-first (ya hay caché en `localStorage`).
 
 ---
 
